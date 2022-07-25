@@ -1,8 +1,8 @@
 import ffmpeg
 
-from mixcloud_uploader.options import Options
+from pathlib import Path
 
-def transcode(opts: Options):
+def transcode(recording_path: Path, output_path: Path):
     """Transcodes the raw recording, i.e. compresses the audio."""
 
-    ffmpeg.input(str(opts.recording_path)).output(str(opts.output_path)).run(overwrite_output=True)
+    ffmpeg.input(str(recording_path)).output(str(output_path)).run(overwrite_output=True)

@@ -6,6 +6,7 @@ from tempfile import NamedTemporaryFile
 from typing import Optional
 
 from mixcloud_uploader.options import Options
+from mixcloud_uploader.tracklist import read_cuesheet
 from mixcloud_uploader.transcode import transcode
 
 def find_latest_recording(recordings_dir: Path) -> tuple[Optional[Path], Optional[Path]]:
@@ -16,11 +17,18 @@ def find_latest_recording(recordings_dir: Path) -> tuple[Optional[Path], Optiona
     return None, None
 
 def run(opts: Options):
+    # Transcode the audio if needed
     if opts.output_path.exists():
         print('==> Already transcoded, skipping...')
     else:
         print(f'==> Transcoding {opts.recording_path} to {opts.output_path}...')
-        transcode(opts)
+        transcode(opts.recording_path, opts.output_path)
+    
+    # Parse and prompt user to edit the tracklist
+    tracks = read_cuesheet(opts.tracklist_path)
+
+    # TODO
+    print(tracks)
 
 def main():
     parser = argparse.ArgumentParser(description='CLI tool for uploading Mixxx recordings to Mixcloud')

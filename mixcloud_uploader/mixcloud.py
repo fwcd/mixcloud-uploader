@@ -1,5 +1,5 @@
-import json
 import time
+from typing import Optional
 import requests
 import webbrowser
 
@@ -10,9 +10,22 @@ from threading import Thread
 class Mixcloud:
     """A wrapper around the Mixcloud API."""
 
+    API_BASE_URL = 'https://api.mixcloud.com'
+
     def __init__(self, access_token: str):
         self.access_token = access_token
-
+    
+    def request(self, method: str, endpoint: str, query: Optional[dict[str, str]]=None) -> requests.Response:
+        """Performs an authenticated request against the API."""
+        query = (query or {}) + {'access_token': self.access_token}
+        encoded_query = '&'.join(f'{quote_plus(k)}={quote_plus(v)}' for k, v in query.items())
+        url = f'{Mixcloud.API_BASE_URL}{endpoint}?{encoded_query}'
+        return requests.request(method, url)
+    
+    def cloudcasts(self, user: str='me') -> dict:
+        """Fetches the given user's cloudcasts."""
+        return self.request('GET', f'/{user}/cloudcasts')
+    
 def authenticate_via_browser(client_id: str, client_secret: str) -> str:
     """Obtains an OAuth2 access token by authenticating via the browser."""
 
@@ -60,7 +73,7 @@ def authenticate_via_browser(client_id: str, client_secret: str) -> str:
     print(f'==> Got code {oauth_code}, requesting OAuth access token...')
     access_token_url = f'https://www.mixcloud.com/oauth/access_token?client_id={client_id}&redirect_uri={quote_plus(redirect_uri)}&client_secret={client_secret}&code={oauth_code}'
     response = requests.get(access_token_url)
-    response_fields = json.loads(response.text)
+    response_fields = response.json()
 
     if 'access_token' in response_fields:
         return response_fields['access_token']

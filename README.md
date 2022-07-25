@@ -26,3 +26,52 @@ To choose a custom recording, make sure that `YOUR_RECORDING_NAME.wav` and `YOUR
 ```sh
 mixcloud-uploader --name YOUR_MIX_NAME --recording-name YOUR_RECORDING_NAME
 ```
+
+For a more detailed overview of the available flags, invoke
+
+```sh
+mixcloud-uploader --help
+```
+
+### Presets
+
+If you upload mixes regularly with a mostly fixed naming scheme, having to specify the upload parameters every time can become verbose. For this reason, this tool supports _presets_, which can be defined in `~/.config/mixcloud-uploader/config.json`, e.g. like this:
+
+```json
+{
+  "presets": {
+    "pop": {
+      "name": "My Pop Mix No. (\\d+)",
+      "artwork": "path/to/some/artwork.png",
+      "tags": ["pop"]
+    }
+  }
+}
+```
+
+When invoked as follows, the tool will then query the existing uploads to find a name with an autoincremented mix number and use the remaining parameters from the preset:
+
+```sh
+mixcloud-uploader --preset pop
+```
+
+### JSON Schemas
+
+There are JSON schemas available for the configuration files, which can be added to your VSCode settings as follows:
+
+```json
+{
+  "json.schemas": [
+    {
+      "fileMatch": [".config/mixcloud-uploader/config.json"],
+      "url": "https://raw.githubusercontent.com/fwcd/mixcloud-uploader/main/config.schema.json"
+    },
+    {
+      "fileMatch": [".config/mixcloud-uploader/auth.json"],
+      "url": "https://raw.githubusercontent.com/fwcd/mixcloud-uploader/main/auth.schema.json"
+    }
+  ]
+}
+```
+
+Adding these schemas lets VSCode provide code completion and linting in these configuration files.

@@ -39,7 +39,12 @@ def run(opts: Options):
             tmpfile.flush()
 
             subprocess.run([editor, str(path)])
-            tracks = read_tabular(path)
+
+            new_tracks = read_tabular(path)
+            if tracks and not new_tracks:
+                print('Empty tracklist, aborting...')
+                sys.exit(1)
+            tracks = new_tracks
     
     for track in tracks:
         print(track)

@@ -1,6 +1,7 @@
+import re
+
 from dataclasses import dataclass
 from pathlib import Path
-from tkinter import SEPARATOR
 from typing import Iterable
 
 @dataclass
@@ -8,6 +9,13 @@ class TracklistEntry:
     artist: str = ''
     title: str = ''
     start_seconds: int = 0
+
+    def complete(self):
+        """Attempts to guess the artist from the title if empty."""
+        if not self.artist:
+            split = re.split(r'[-–]', self.title, maxsplit=1)
+            self.artist = split[0].strip()
+            self.title = split[1].strip()
 
 def parse_quoted(raw: str) -> str:
     return raw.removeprefix('"').removesuffix('"')
@@ -26,6 +34,7 @@ def parse_cuesheet(lines: Iterable[str]) -> Iterable[TracklistEntry]:
         if split:
             if split[0] == 'TRACK':
                 if entry:
+                    entry.complete()
                     yield entry
                 entry = TracklistEntry()
             elif entry:
@@ -37,6 +46,7 @@ def parse_cuesheet(lines: Iterable[str]) -> Iterable[TracklistEntry]:
                     entry.start_seconds = parse_time(split[1].split(' ')[-1])
 
     if entry:
+        entry.complete()
         yield entry
 
 def read_cuesheet(path: Path) -> list[TracklistEntry]:

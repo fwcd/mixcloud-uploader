@@ -1,4 +1,6 @@
 import argparse
+import os
+import subprocess
 import sys
 
 from pathlib import Path
@@ -6,7 +8,7 @@ from tempfile import NamedTemporaryFile
 from typing import Optional
 
 from mixcloud_uploader.options import Options
-from mixcloud_uploader.tracklist import read_cuesheet
+from mixcloud_uploader.tracklist import read_cuesheet, read_tabular, write_tabular
 from mixcloud_uploader.transcode import transcode
 
 def find_latest_recording(recordings_dir: Path) -> tuple[Optional[Path], Optional[Path]]:
@@ -27,8 +29,20 @@ def run(opts: Options):
     # Parse and prompt user to edit the tracklist
     tracks = read_cuesheet(opts.tracklist_path)
 
-    # TODO
-    print(tracks)
+    # Open editor with cuesheet if not noninteractive
+    if not opts.noninteractive:
+        with NamedTemporaryFile(prefix='tracklist-', suffix='.txt', mode='w+t') as tmpfile:
+            editor = os.environ.get('EDITOR', 'vim')
+
+            path = Path(tmpfile.name)
+            write_tabular(tracks, path)
+            tmpfile.flush()
+
+            subprocess.run([editor, str(path)])
+            tracks = read_tabular(path)
+    
+    for track in tracks:
+        print(track)
 
 def main():
     parser = argparse.ArgumentParser(description='CLI tool for uploading Mixxx recordings to Mixcloud')
@@ -36,12 +50,16 @@ def main():
     parser.add_argument('-r', '--recording-name', help='The name of the recording (which should have a corresponding .cue and .wav file). Defaults to the latest.')
     parser.add_argument('-o', '--output-dir', help='The path to the output directory. Defaults to a temporary directory.')
     parser.add_argument('-n', '--name', required=True, help='The name of the mix.')
+    parser.add_argument('-y', '--noninteractive', action='store_true', help='Runs noninteractively, i.e. uploads the tracklist as-is.')
 
+    # Parse CLI args
     args = parser.parse_args()
     recordings_dir = Path(args.recordings_dir)
     output_dir = Path(args.output_dir) if args.output_dir else None
+    noninteractive = args.noninteractive
     name = args.name
 
+    # Find recording
     if args.recording_name:
         # Use the specified recording
         recording_path = recordings_dir / f'{args.recording_name}.wav'
@@ -50,6 +68,7 @@ def main():
         # Default to latest recording
         recording_path, tracklist_path = find_latest_recording(recordings_dir)
 
+    # Handle absence of a recording
     if not recording_path or not tracklist_path:
         print('No recording found!')
         sys.exit(1)
@@ -68,6 +87,7 @@ def main():
             recording_path=recording_path,
             tracklist_path=tracklist_path,
             output_path=output_path,
+            noninteractive=noninteractive,
             name=name
         )
         run(opts)
@@ -78,6 +98,7 @@ def main():
                 recording_path=recording_path,
                 tracklist_path=tracklist_path,
                 output_path=Path(tmpfile.name),
+                noninteractive=noninteractive,
                 name=name
             )
             run(opts)

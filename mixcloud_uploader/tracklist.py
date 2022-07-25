@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 from pathlib import Path
+from tkinter import SEPARATOR
 from typing import Iterable
 
 @dataclass
 class TracklistEntry:
-    title: str = ''
     artist: str = ''
+    title: str = ''
     start_seconds: int = 0
 
 def parse_quoted(raw: str) -> str:
@@ -39,5 +40,32 @@ def parse_cuesheet(lines: Iterable[str]) -> Iterable[TracklistEntry]:
         yield entry
 
 def read_cuesheet(path: Path) -> list[TracklistEntry]:
-    with open(path) as f:
+    with open(path, 'r') as f:
         return list(parse_cuesheet(f.readlines()))
+
+DEFAULT_SEPARATOR = ' :: '
+
+def format_tabular(tracks: list[TracklistEntry], separator: str=DEFAULT_SEPARATOR) -> Iterable[str]:
+    def sanitize(s: str) -> str:
+        return s.replace(separator, ' ')
+
+    for track in tracks:
+        yield separator.join([sanitize(track.artist), sanitize(track.title), str(track.start_seconds)])
+
+def write_tabular(tracks: list[TracklistEntry], path: Path):
+    with open(path, 'w') as f:
+        f.write('\n'.join(format_tabular(tracks)))
+
+def parse_tabular(lines: Iterable[str], separator: str=DEFAULT_SEPARATOR) -> Iterable[TracklistEntry]:
+    for line in lines:
+        split = line.strip().split(separator)
+        if len(split) >= 3:
+            yield TracklistEntry(
+                artist=split[0],
+                title=split[1],
+                start_seconds=int(split[2])
+            )
+
+def read_tabular(path: Path) -> list[TracklistEntry]:
+    with open(path, 'r') as f:
+        return list(parse_tabular(f.readlines()))

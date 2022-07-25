@@ -9,5 +9,7 @@ class Options:
     tracklist_path: Path
     # The path to the transcoded mp3.
     output_path: Path
+    # Whether to run noninteractively.
+    noninteractive: bool
     # The (output) name of the mix.
     name: str

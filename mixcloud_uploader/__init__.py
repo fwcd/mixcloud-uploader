@@ -11,9 +11,9 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Optional
 
 from mixcloud_uploader.mixcloud import Mixcloud, authenticate_via_browser
-from mixcloud_uploader.tracklist import read_cuesheet, read_tabular, write_tabular
+from mixcloud_uploader.tracklist import format_tabular, read_cuesheet, read_tabular, write_tabular
 from mixcloud_uploader.transcode import transcode
-from mixcloud_uploader.utils import input_with_default
+from mixcloud_uploader.utils import confirm, input_with_default, pretty_box
 
 DEFAULT_CONFIG_DIR = Path.home() / '.config' / 'mixcloud-uploader'
 DEFAULT_CONFIG_PATH = DEFAULT_CONFIG_DIR / 'config.json'
@@ -34,6 +34,8 @@ class Options:
     mixcloud: Mixcloud
     # The name for the uplaoded mix.
     name: str
+    # The description for the uploaded mix.
+    description: Optional[str]
     # The path to the artwork.
     artwork_path: Optional[Path]
     # The tags for the mix.
@@ -61,7 +63,7 @@ def find_next_name(pattern: str, mixcloud: Mixcloud) -> str:
 def run(opts: Options):
     # Transcode the audio if needed
     if opts.output_path.exists():
-        print('==> Already transcoded, skipping...')
+        print(f'==> Using cached {opts.output_path}...')
     else:
         print(f'==> Transcoding {opts.recording_path} to {opts.output_path}...')
         transcode(opts.recording_path, opts.output_path)
@@ -86,17 +88,40 @@ def run(opts: Options):
                 sys.exit(1)
             tracks = new_tracks
     
-    for track in tracks:
-        print(track)
+    print('==> Confirming...')
+    print('\n'.join(format_tabular(tracks)))
+    print(pretty_box([
+        f'- name: {opts.name}',
+        f'- description: {opts.description}',
+        f'- audio_file_path: {opts.output_path}',
+        f'- artwork_path: {opts.artwork_path}',
+        f'- tags: {opts.tags}',
+        f'- tracks: {len(tracks)} track(s), see above',
+    ]))
+    confirm('Upload this mix?')
+
+    print('==> Uploading mix...')
+    result = opts.mixcloud.upload(
+        name=opts.name,
+        description=opts.description,
+        audio_file_path=opts.output_path,
+        artwork_path=opts.artwork_path,
+        tags=opts.tags,
+        tracks=tracks
+    )
+    print(result)
+
+    print('==> Successfully uploaded mix')
 
 def main():
     parser = argparse.ArgumentParser(description='CLI tool for uploading Mixxx recordings to Mixcloud')
     parser.add_argument('-c', '--config', default=str(DEFAULT_CONFIG_PATH), help='The path to the config.json')
     parser.add_argument('-a', '--auth', default=str(DEFAULT_AUTH_PATH), help='The path to the auth.json')
-    parser.add_argument('-d', '--recordings-dir', default=str(DEFAULT_RECORDINGS_PATH), help='The recordings directory to use.')
-    parser.add_argument('-r', '--recording-name', help='The name of the recording (which should have a corresponding .cue and .wav file). Defaults to the latest.')
+    parser.add_argument('-rd', '--recordings-dir', default=str(DEFAULT_RECORDINGS_PATH), help='The recordings directory to use.')
+    parser.add_argument('-rn', '--recording-name', help='The name of the recording (which should have a corresponding .cue and .wav file). Defaults to the latest.')
     parser.add_argument('-o', '--output-dir', help='The path to the output directory. Defaults to a temporary directory.')
     parser.add_argument('-n', '--name', help='The name to use for the uploaded mix.')
+    parser.add_argument('-d', '--description', help='The description to use for the uploaded mix.')
     parser.add_argument('-w', '--artwork', help='The artwork to use for the uploaded mix.')
     parser.add_argument('-t', '--tags', default='', help='A comma-separated list of tags to use for the uploaded mix.')
     parser.add_argument('-p', '--preset', help='A preset from the config to use (can be overridden with --name, --artwork and --tags).')
@@ -117,6 +142,7 @@ def main():
     client_id = args.client_id
     client_secret = args.client_secret
     name = args.name
+    description = args.description
     artwork_path = Path(args.artwork) if args.artwork else None
     tags = [tag.strip() for tag in args.tags.split(',')]
 
@@ -170,6 +196,7 @@ def main():
         name_pattern = preset.get('name', None)
         next_name = find_next_name(name_pattern, mixcloud) if name_pattern else None
         name = name or next_name
+        description = description or preset.get('description', None)
         artwork = preset.get('artwork', None)
         artwork_path = artwork_path or (Path(artwork) if artwork else None)
         tags = tags or preset.get('tags', [])
@@ -190,7 +217,7 @@ def main():
     else:
         # Default to latest recording
         recording_path, tracklist_path = find_latest_recording(recordings_dir)
-
+    
     # Handle absence of a recording
     if not recording_path or not tracklist_path:
         print('No recording found!')
@@ -208,12 +235,14 @@ def main():
         output_path = output_dir / f"transcoded-{recording_path.name.split('.')[0]}.mp3"
 
         opts = Options(
-            recording_path=recording_path,
-            tracklist_path=tracklist_path,
-            output_path=output_path,
+            recording_path=recording_path.expanduser(),
+            tracklist_path=tracklist_path.expanduser(),
+            output_path=output_path.expanduser(),
             noninteractive=noninteractive,
+            mixcloud=mixcloud,
             name=name,
-            artwork_path=artwork_path,
-            tags=tags
+            description=description,
+            artwork_path=artwork_path.expanduser(),
+            tags=[tag.strip() for tag in tags if tag.strip()],
         )
         run(opts)

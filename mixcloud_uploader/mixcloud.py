@@ -1,11 +1,15 @@
+import contextlib
 import time
-from typing import Optional
 import requests
 import webbrowser
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs, quote_plus
+from pathlib import Path
 from threading import Thread
+from typing import Optional
+
+from mixcloud_uploader.tracklist import TracklistEntry
 
 class Mixcloud:
     """A wrapper around the Mixcloud API."""
@@ -15,16 +19,48 @@ class Mixcloud:
     def __init__(self, access_token: str):
         self.access_token = access_token
     
-    def request(self, method: str, endpoint: str, query: Optional[dict[str, str]]=None) -> requests.Response:
+    def request(self, method: str, endpoint: str, query: Optional[dict[str, str]]=None, files: Optional[dict]=None, data: Optional[dict]=None) -> requests.Response:
         """Performs an authenticated request against the API."""
         query = dict(query or {}, access_token=self.access_token)
         encoded_query = '&'.join(f'{quote_plus(k)}={quote_plus(v)}' for k, v in query.items())
         url = f'{Mixcloud.API_BASE_URL}{endpoint}?{encoded_query}'
-        return requests.request(method, url)
+        return requests.request(method, url, files=files, data=data)
     
     def cloudcasts(self, user: str='me') -> dict:
-        """Fetches the given user's cloudcasts."""
+        """Fetches the given user's mixes."""
         return self.request('GET', f'/{user}/cloudcasts').json()
+    
+    def upload(
+        self,
+        audio_file_path: Path,
+        name: str,
+        artwork_path: Optional[Path]=None,
+        description: Optional[str]=None,
+        tags: Optional[list[str]]=None,
+        tracks: Optional[list[TracklistEntry]]=None,
+    ):
+        """Uploads a mix."""
+        with open(audio_file_path, 'rb') as audio_file:
+            with (open(artwork_path, 'rb') if artwork_path else contextlib.nullcontext()) as artwork_file:
+                response = self.request(
+                    'POST', '/upload/',
+                    files={k: v for k, v in [
+                        ('mp3', audio_file),
+                        ('picture', artwork_file),
+                    ] if v},
+                    data={k: v for k, v in [
+                        ('name', name),
+                        ('description', description),
+                        *((f'tags-{i}-tag', tag) for i, tag in enumerate(tags or [])),
+                        *(section for i, track in enumerate(tracks or []) for section in [
+                            (f'sections-{i}-artist', track.artist),
+                            (f'sections-{i}-song', track.title),
+                            (f'sections-{i}-start_time', str(track.start_seconds)),
+                        ]),
+                    ] if v}
+                )
+                response.raise_for_status()
+                return response.json()
     
 def authenticate_via_browser(client_id: str, client_secret: str) -> str:
     """Obtains an OAuth2 access token by authenticating via the browser."""

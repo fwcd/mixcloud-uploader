@@ -9,3 +9,5 @@ class Options:
     tracklist_path: Path
     # The path to the transcoded mp3.
     output_path: Path
+    # The (output) name of the mix.
+    name: str

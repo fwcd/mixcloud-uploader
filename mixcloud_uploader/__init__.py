@@ -11,10 +11,16 @@ from mixcloud_uploader.transcode import transcode
 def find_latest_recording(recordings_dir: Path) -> tuple[Optional[Path], Optional[Path]]:
     sorted_files = sorted(recordings_dir.iterdir(), key=lambda f: f.name, reverse=True)
     for wav_path, cue_path in zip(sorted_files, sorted_files[1:]):
-        print(wav_path, cue_path)
         if wav_path.name.endswith('.wav') and cue_path.name.endswith('.cue'):
             return wav_path, cue_path
     return None, None
+
+def run(opts: Options):
+    if opts.output_path.exists():
+        print('==> Already transcoded, skipping...')
+    else:
+        print(f'==> Transcoding {opts.recording_path} to {opts.output_path}...')
+        transcode(opts)
 
 def main():
     parser = argparse.ArgumentParser(description='CLI tool for uploading Mixxx recordings to Mixcloud')
@@ -25,6 +31,8 @@ def main():
 
     args = parser.parse_args()
     recordings_dir = Path(args.recordings_dir)
+    output_dir = Path(args.output_dir) if args.output_dir else None
+    name = args.name
 
     if args.recording_name:
         # Use the specified recording
@@ -44,16 +52,24 @@ def main():
         print(f'{tracklist_path} does not exist!')
         sys.exit(1)
     
-    with NamedTemporaryFile(prefix='transcoded-', suffix='.mp3', dir=args.output_dir) as output_file:
-        output_path = Path(output_file.name)
-
+    if output_dir:
+        # Use the specified output directory with a deterministic name
+        # to allow caching the transcoded audio file.
+        output_path = output_dir / f"transcoded-{recording_path.name.split('.')[0]}.mp3"
         opts = Options(
             recording_path=recording_path,
             tracklist_path=tracklist_path,
-            output_path=output_path
+            output_path=output_path,
+            name=name
         )
-
-        print(f'==> Transcoding {recording_path} to {output_path}...')
-        transcode(opts)
-
-        # TODO
+        run(opts)
+    else:
+        # Use a temporary file for the transcoded audio file.
+        with NamedTemporaryFile(prefix='transcoded-', suffix='.mp3') as tmpfile:
+            opts = Options(
+                recording_path=recording_path,
+                tracklist_path=tracklist_path,
+                output_path=Path(tmpfile.name),
+                name=name
+            )
+            run(opts)

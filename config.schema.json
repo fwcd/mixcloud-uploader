@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "title": "Mixcloud Uploader CLI configuration",
+  "type": "object",
+  "properties": {
+    "presets": {
+      "type": "object",
+      "description": "Presets for uploaded mixes.",
+      "additionalProperties": {
+        "type": "object",
+        "description": "A preset for an uploaded mix.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "A name pattern in the form of a regular expression that may capture a single number describing the index/number of the mix."
+          },
+          "artwork": {
+            "type": "string",
+            "description": "A file path to the cover art for the uploaded mix."
+          },
+          "tags": {
+            "type": "array",
+            "description": "A list of tags for the upload.",
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "examples": [
+                "house",
+                "techno",
+                "pop",
+                "hip-hop",
+                "rock",
+                "edm",
+                "folk"
+              ]
+            }
+          }
+        },
+        "required": ["name"]
+      }
+    }
+  },
+  "required": ["presets"]
+}

@@ -55,7 +55,7 @@ class Mixcloud:
                         *(section for i, track in enumerate(tracks or []) for section in [
                             (f'sections-{i}-artist', track.artist),
                             (f'sections-{i}-song', track.title),
-                            (f'sections-{i}-start_time', str(track.start_seconds)),
+                            (f'sections-{i}-start_time', track.start_seconds),
                         ]),
                     ] if v}
                 )

@@ -21,10 +21,8 @@ def parse_quoted(raw: str) -> str:
     return raw.removeprefix('"').removesuffix('"')
 
 def parse_time(raw: str) -> int:
-    seconds = 0
-    for segment in raw.split(':'):
-        seconds = seconds * 60 + int(segment)
-    return seconds
+    minutes, seconds = map(int, raw.split(':')[:2])
+    return 60 * minutes + seconds
 
 def parse_cuesheet(lines: Iterable[str]) -> Iterable[TracklistEntry]:
     entry = None

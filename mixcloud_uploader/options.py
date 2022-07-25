@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 @dataclass
 class Options:
@@ -11,5 +12,9 @@ class Options:
     output_path: Path
     # Whether to run noninteractively.
     noninteractive: bool
-    # The (output) name of the mix.
+    # The name for the uplaoded mix.
     name: str
+    # The path to the artwork.
+    artwork_path: Optional[Path]
+    # The tags for the mix.
+    tags: list[str]

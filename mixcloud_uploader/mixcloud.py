@@ -17,14 +17,14 @@ class Mixcloud:
     
     def request(self, method: str, endpoint: str, query: Optional[dict[str, str]]=None) -> requests.Response:
         """Performs an authenticated request against the API."""
-        query = (query or {}) + {'access_token': self.access_token}
+        query = dict(query or {}, access_token=self.access_token)
         encoded_query = '&'.join(f'{quote_plus(k)}={quote_plus(v)}' for k, v in query.items())
         url = f'{Mixcloud.API_BASE_URL}{endpoint}?{encoded_query}'
         return requests.request(method, url)
     
     def cloudcasts(self, user: str='me') -> dict:
         """Fetches the given user's cloudcasts."""
-        return self.request('GET', f'/{user}/cloudcasts')
+        return self.request('GET', f'/{user}/cloudcasts').json()
     
 def authenticate_via_browser(client_id: str, client_secret: str) -> str:
     """Obtains an OAuth2 access token by authenticating via the browser."""

@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 import os
 import subprocess
 import sys
@@ -12,6 +13,7 @@ from typing import Optional
 from mixcloud_uploader.mixcloud import Mixcloud, authenticate_via_browser
 from mixcloud_uploader.tracklist import read_cuesheet, read_tabular, write_tabular
 from mixcloud_uploader.transcode import transcode
+from mixcloud_uploader.utils import input_with_default
 
 DEFAULT_CONFIG_DIR = Path.home() / '.config' / 'mixcloud-uploader'
 DEFAULT_CONFIG_PATH = DEFAULT_CONFIG_DIR / 'config.json'
@@ -38,6 +40,7 @@ class Options:
     tags: list[str]
 
 def find_latest_recording(recordings_dir: Path) -> tuple[Optional[Path], Optional[Path]]:
+    """Finds the latest recording's wav and cue path."""
     sorted_files = sorted(recordings_dir.iterdir(), key=lambda f: f.name, reverse=True)
     for wav_path, cue_path in zip(sorted_files, sorted_files[1:]):
         if wav_path.name.endswith('.wav') and cue_path.name.endswith('.cue'):
@@ -45,8 +48,15 @@ def find_latest_recording(recordings_dir: Path) -> tuple[Optional[Path], Optiona
     return None, None
 
 def find_next_name(pattern: str, mixcloud: Mixcloud) -> str:
-    # TODO
-    pass
+    """
+    Finds the 'next' name for a mix given a naming pattern (regex).
+    The pattern should have at most one capturing group for capturing an index/number.
+    """
+    mixes = mixcloud.cloudcasts().get('data', [])
+    newest = next(mix for mix in mixes if re.match(pattern, mix['name'])) # TODO: Handle pagination
+    newest_number = int(re.match(pattern, newest['name']).group(1)) if newest else 0
+    next_number = newest_number + 1
+    return re.sub(r'\([^\)]+\)', str(next_number), pattern)
 
 def run(opts: Options):
     # Transcode the audio if needed
@@ -59,7 +69,7 @@ def run(opts: Options):
     # Parse and prompt user to edit the tracklist
     tracks = read_cuesheet(opts.tracklist_path)
 
-    # Open editor with cuesheet if not noninteractive
+    # Open editor for editing the tracklist if not noninteractive
     if not opts.noninteractive:
         with NamedTemporaryFile(prefix='tracklist-', suffix='.txt', mode='w+t') as tmpfile:
             editor = os.environ.get('EDITOR', 'vim')
@@ -152,17 +162,25 @@ def main():
 
     # Read preset
     if preset_key:
-        preset = config.get('presets', {}).get(preset_key, None)
-        name_pattern = config.get('name', None)
-        name = name or (find_next_name(name_pattern, mixcloud) if name_pattern else None)
+        presets = config.get('presets', {})
+        if preset_key not in presets:
+            print(f'Preset key {preset_key} not found!')
+            sys.exit(1)
+        preset = presets.get(preset_key, None)
+        name_pattern = preset.get('name', None)
+        next_name = find_next_name(name_pattern, mixcloud) if name_pattern else None
+        name = name or next_name
         artwork = preset.get('artwork', None)
         artwork_path = artwork_path or (Path(artwork) if artwork else None)
         tags = tags or preset.get('tags', [])
     
     # Handle absence of name
-    if not name:
-        print(f'Please specify a name with --name or use a preset from {config_path}!')
-        sys.exit(1)
+    if not name or (not noninteractive and next_name):
+        if noninteractive:
+            print(f'Please specify a name with --name or use a preset from {config_path}!')
+            sys.exit(1)
+        
+        name = input_with_default('Mix name:', name)
     
     # Find recording
     if args.recording_name:

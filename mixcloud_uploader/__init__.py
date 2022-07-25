@@ -55,8 +55,8 @@ def find_next_name(pattern: str, mixcloud: Mixcloud) -> str:
     The pattern should have at most one capturing group for capturing an index/number.
     """
     mixes = mixcloud.cloudcasts().get('data', [])
-    newest = next(mix for mix in mixes if re.match(pattern, mix['name'])) # TODO: Handle pagination
-    newest_number = int(re.match(pattern, newest['name']).group(1)) if newest else 0
+    newest_match = next(match for mix in mixes for match in [re.match(pattern, mix['name'])] if match) # TODO: Handle pagination
+    newest_number = int(newest_match.group(1)) if newest_match else 0
     next_number = newest_number + 1
     return re.sub(r'\([^\)]+\)', str(next_number), pattern)
 
@@ -179,9 +179,10 @@ def main():
         access_token = authenticate_via_browser(client_id, client_secret)
 
         # Cache access token
-        auth['access-token'] = access_token
-        with open(auth_path, 'w') as f:
-            json.dump(auth, f, indent=2, sort_keys=True)
+        if auth_path:
+            auth['access-token'] = access_token
+            with open(auth_path, 'w') as f:
+                json.dump(auth, f, indent=2, sort_keys=True)
     
     # Set up API wrapper
     mixcloud = Mixcloud(access_token)
@@ -192,7 +193,7 @@ def main():
         if preset_key not in presets:
             print(f'Preset key {preset_key} not found!')
             sys.exit(1)
-        preset = presets.get(preset_key, None)
+        preset = presets.get(preset_key, {})
         name_pattern = preset.get('name', None)
         next_name = find_next_name(name_pattern, mixcloud) if name_pattern else None
         name = name or next_name
@@ -200,6 +201,8 @@ def main():
         artwork = preset.get('artwork', None)
         artwork_path = artwork_path or (Path(artwork) if artwork else None)
         tags = tags or preset.get('tags', [])
+    else:
+        next_name = None
     
     # Handle absence of name
     if not name or (not noninteractive and next_name):
@@ -242,7 +245,7 @@ def main():
             mixcloud=mixcloud,
             name=name,
             description=description,
-            artwork_path=artwork_path.expanduser(),
+            artwork_path=artwork_path.expanduser() if artwork_path else None,
             tags=[tag.strip() for tag in tags if tag.strip()],
         )
         run(opts)

@@ -1,6 +1,8 @@
 import sys
 
-def input_with_default(prompt: str, default: str) -> str:
+from typing import Optional
+
+def input_with_default(prompt: str, default: Optional[str]) -> str:
     if default:
         response = input(f'{prompt} [default: {default}] ').strip()
         return response or default

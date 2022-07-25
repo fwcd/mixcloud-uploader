@@ -1,3 +1,4 @@
+import json
 import time
 import requests
 import webbrowser
@@ -20,15 +21,22 @@ def authenticate_via_browser(client_id: str, client_secret: str) -> str:
 
     class RequestHandler(BaseHTTPRequestHandler):
         def do_GET(self):
-            if self.path == callback_endpoint:
-                url = urlparse(self.path)
+            url = urlparse(self.path)
+
+            if url.path == callback_endpoint:
                 query = parse_qs(url.query)
 
-                nonlocal oauth_code
-                oauth_code = query['code']
+                if 'code' in query:
+                    nonlocal oauth_code
+                    oauth_code = query['code'][0]
+
+                    def shutdown_soon():
+                        time.sleep(1)
+                        self.server.shutdown()
+
+                    Thread(target=shutdown_soon).start()
 
                 self.send_response(200)
-                self.server.shutdown()
             else:
                 self.send_response(404)
 
@@ -47,10 +55,14 @@ def authenticate_via_browser(client_id: str, client_secret: str) -> str:
     server.serve_forever()
 
     if not oauth_code:
-        raise ValueError('No OAuth code received!')
+        raise RuntimeError('No OAuth code received!')
 
-    print('==> Requesting OAuth access token')
-    response = requests.get(f'https://www.mixcloud.com/oauth/authorize?client_id={client_id}&redirect_uri={quote_plus(redirect_uri)}&client_secret={client_secret}&code={oauth_code}')
-    response_fields = parse_qs(response.text)
+    print(f'==> Got code {oauth_code}, requesting OAuth access token...')
+    access_token_url = f'https://www.mixcloud.com/oauth/access_token?client_id={client_id}&redirect_uri={quote_plus(redirect_uri)}&client_secret={client_secret}&code={oauth_code}'
+    response = requests.get(access_token_url)
+    response_fields = json.loads(response.text)
 
-    return response_fields['access_token']
+    if 'access_token' in response_fields:
+        return response_fields['access_token']
+    else:
+        raise RuntimeError(f'Could not fetch access token: {response.text}')

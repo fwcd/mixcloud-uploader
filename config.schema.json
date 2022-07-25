@@ -3,18 +3,6 @@
   "title": "Mixcloud Uploader CLI configuration",
   "type": "object",
   "properties": {
-    "access-token": {
-      "type": "string",
-      "description": "The Mixcloud API OAuth2 access token to use. Will take precedence over client-id and client-secret."
-    },
-    "client-id": {
-      "type": "string",
-      "description": "The Mixcloud API OAuth2 client id to use."
-    },
-    "client-secret": {
-      "type": "string",
-      "description": "The Mixcloud API OAuth2 client secret to use."
-    },
     "presets": {
       "type": "object",
       "description": "Presets for uploaded mixes.",

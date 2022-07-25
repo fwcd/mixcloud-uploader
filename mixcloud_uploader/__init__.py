@@ -15,7 +15,7 @@ from mixcloud_uploader.transcode import transcode
 
 DEFAULT_CONFIG_DIR = Path.home() / '.config' / 'mixcloud-uploader'
 DEFAULT_CONFIG_PATH = DEFAULT_CONFIG_DIR / 'config.json'
-DEFAULT_CACHED_AUTH_PATH = DEFAULT_CONFIG_DIR / 'cached-auth.json'
+DEFAULT_AUTH_PATH = DEFAULT_CONFIG_DIR / 'auth.json'
 DEFAULT_RECORDINGS_PATH = Path.home() / 'Music' / 'Mixxx' / 'Recordings'
 
 @dataclass
@@ -82,12 +82,12 @@ def run(opts: Options):
 def main():
     parser = argparse.ArgumentParser(description='CLI tool for uploading Mixxx recordings to Mixcloud')
     parser.add_argument('-c', '--config', default=str(DEFAULT_CONFIG_PATH), help='The path to the config.json')
-    parser.add_argument('-ca', '--cached-auth', default=str(DEFAULT_CACHED_AUTH_PATH), help='The path to the cached-auth.json')
+    parser.add_argument('-a', '--auth', default=str(DEFAULT_AUTH_PATH), help='The path to the auth.json')
     parser.add_argument('-d', '--recordings-dir', default=str(DEFAULT_RECORDINGS_PATH), help='The recordings directory to use.')
     parser.add_argument('-r', '--recording-name', help='The name of the recording (which should have a corresponding .cue and .wav file). Defaults to the latest.')
     parser.add_argument('-o', '--output-dir', help='The path to the output directory. Defaults to a temporary directory.')
     parser.add_argument('-n', '--name', help='The name to use for the uploaded mix.')
-    parser.add_argument('-a', '--artwork', help='The artwork to use for the uploaded mix.')
+    parser.add_argument('-w', '--artwork', help='The artwork to use for the uploaded mix.')
     parser.add_argument('-t', '--tags', default='', help='A comma-separated list of tags to use for the uploaded mix.')
     parser.add_argument('-p', '--preset', help='A preset from the config to use (can be overridden with --name, --artwork and --tags).')
     parser.add_argument('-y', '--noninteractive', action='store_true', help='Runs noninteractively, i.e. uploads the tracklist as-is.')
@@ -101,7 +101,7 @@ def main():
     output_dir = Path(args.output_dir) if args.output_dir else None
     noninteractive = args.noninteractive
     config_path = Path(args.config) if args.config else None
-    cached_auth_path = Path(args.cached_auth) if args.cached_auth else None
+    auth_path = Path(args.auth) if args.auth else None
     preset_key = args.preset
     access_token = args.access_token
     client_id = args.client_id
@@ -118,16 +118,16 @@ def main():
         config = {}
     
     # Read cached auth
-    if cached_auth_path and cached_auth_path.exists():
-        with open(cached_auth_path, 'r') as f:
-            cached_auth = json.load(f)
+    if auth_path and auth_path.exists():
+        with open(auth_path, 'r') as f:
+            auth = json.load(f)
     else:
-        cached_auth = {}
+        auth = {}
 
-    # Read defaults from config and cached auth
-    access_token = access_token or config.get('access-token', None) or cached_auth.get('access-token', None)
-    client_id = client_id or config.get('client-id', None)
-    client_secret = client_secret or config.get('client-secret', None)
+    # Default to cached auth
+    access_token = access_token or auth.get('access-token', None)
+    client_id = client_id or auth.get('client-id', None)
+    client_secret = client_secret or auth.get('client-secret', None)
 
     # Handle browser-based API authentication
     if not access_token:
@@ -143,9 +143,9 @@ def main():
         access_token = authenticate_via_browser(client_id, client_secret)
 
         # Cache access token
-        cached_auth['access-token'] = access_token
-        with open(cached_auth_path, 'w') as f:
-            json.dump(f)
+        auth['access-token'] = access_token
+        with open(auth_path, 'w') as f:
+            json.dump(auth, f, indent=2, sort_keys=True)
     
     # Set up API wrapper
     mixcloud = Mixcloud(access_token)

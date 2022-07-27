@@ -13,9 +13,12 @@ class TracklistEntry:
     def complete(self):
         """Attempts to guess the artist from the title if empty."""
         if not self.artist:
-            split = re.split(r'[-–]', self.title, maxsplit=1)
-            self.artist = split[0].strip()
-            self.title = split[1].strip()
+            for pattern in [r'[-–]', r':', r'by']:
+                split = re.split(pattern, self.title, maxsplit=1)
+                if len(split) >= 2:
+                    self.artist = split[0].strip()
+                    self.title = split[1].strip()
+                    break
 
 def parse_quoted(raw: str) -> str:
     return raw.removeprefix('"').removesuffix('"')

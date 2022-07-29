@@ -115,14 +115,14 @@ def run(opts: Options):
 
 def main():
     parser = argparse.ArgumentParser(description='CLI tool for uploading Mixxx recordings to Mixcloud')
-    parser.add_argument('-c', '--config', default=str(DEFAULT_CONFIG_PATH), help='The path to the config.json')
-    parser.add_argument('-a', '--auth', default=str(DEFAULT_AUTH_PATH), help='The path to the auth.json')
-    parser.add_argument('-rd', '--recordings-dir', default=str(DEFAULT_RECORDINGS_PATH), help='The recordings directory to use.')
+    parser.add_argument('-c', '--config', type=Path, default=DEFAULT_CONFIG_PATH, help='The path to the config.json')
+    parser.add_argument('-a', '--auth', type=Path, default=DEFAULT_AUTH_PATH, help='The path to the auth.json')
+    parser.add_argument('-rd', '--recordings-dir', type=Path, help='The recordings directory to use.')
     parser.add_argument('-rn', '--recording-name', help='The name of the recording (which should have a corresponding .cue and .wav file). Defaults to the latest.')
-    parser.add_argument('-o', '--output-dir', help='The path to the output directory. Defaults to a temporary directory.')
+    parser.add_argument('-o', '--output-dir', type=Path, help='The path to the output directory. Defaults to a temporary directory.')
     parser.add_argument('-n', '--name', help='The name to use for the uploaded mix.')
     parser.add_argument('-d', '--description', help='The description to use for the uploaded mix.')
-    parser.add_argument('-w', '--artwork', help='The artwork to use for the uploaded mix.')
+    parser.add_argument('-w', '--artwork', type=Path, help='The artwork to use for the uploaded mix.')
     parser.add_argument('-t', '--tags', default='', help='A comma-separated list of tags to use for the uploaded mix.')
     parser.add_argument('-p', '--preset', help='A preset from the config to use (can be overridden with --name, --artwork and --tags).')
     parser.add_argument('-y', '--noninteractive', action='store_true', help='Runs noninteractively, i.e. uploads the tracklist as-is.')
@@ -132,18 +132,18 @@ def main():
 
     # Parse CLI args
     args = parser.parse_args()
-    recordings_dir = Path(args.recordings_dir)
-    output_dir = Path(args.output_dir) if args.output_dir else None
+    recordings_dir = args.recordings_dir
+    output_dir = args.output_dir
     noninteractive = args.noninteractive
-    config_path = Path(args.config) if args.config else None
-    auth_path = Path(args.auth) if args.auth else None
+    config_path = args.config
+    auth_path = args.auth
     preset_key = args.preset
     access_token = args.access_token
     client_id = args.client_id
     client_secret = args.client_secret
     name = args.name
     description = args.description
-    artwork_path = Path(args.artwork) if args.artwork else None
+    artwork_path = args.artwork
     tags = [tag.strip() for tag in args.tags.split(',')]
 
     # Read config
@@ -160,7 +160,11 @@ def main():
     else:
         auth = {}
 
-    # Default to cached auth
+    # Set defaults from stored config/auth
+    raw_recordings_dir = config.get('recordings-dir', str(DEFAULT_RECORDINGS_PATH))
+    raw_output_dir = config.get('output-dir', None)
+    recordings_dir = recordings_dir or Path(raw_recordings_dir)
+    output_dir = output_dir or (Path(raw_output_dir) if raw_output_dir else None)
     access_token = access_token or auth.get('access-token', None)
     client_id = client_id or auth.get('client-id', None)
     client_secret = client_secret or auth.get('client-secret', None)
@@ -234,8 +238,11 @@ def main():
     
     with TemporaryDirectory(prefix='mixcloud-uploader-output-') as tmpdir:
         # Use a deterministic output name to allow caching the transcoded audio file.
-        output_dir = output_dir or Path(tmpdir)
+        output_dir = (output_dir or Path(tmpdir)).expanduser()
         output_path = output_dir / f"transcoded-{recording_path.name.split('.')[0]}.mp3"
+
+        # Ensure that the output directory exists
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         opts = Options(
             recording_path=recording_path.expanduser(),

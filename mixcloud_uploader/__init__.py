@@ -55,7 +55,7 @@ def find_next_name(pattern: str, mixcloud: Mixcloud) -> str:
     The pattern should have at most one capturing group for capturing an index/number.
     """
     mixes = mixcloud.cloudcasts().get('data', [])
-    newest_match = next(match for mix in mixes for match in [re.match(pattern, mix['name'])] if match) # TODO: Handle pagination
+    newest_match = next((match for mix in mixes for match in [re.match(pattern, mix['name'])] if match), None) # TODO: Handle pagination
     newest_number = int(newest_match.group(1)) if newest_match else 0
     next_number = newest_number + 1
     return re.sub(r'\([^\)]+\)', str(next_number), pattern)

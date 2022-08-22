@@ -83,6 +83,10 @@ def run(opts: Options):
     # Parse and prompt user to edit the tracklist
     tracks = read_cuesheet(opts.tracklist_path)
 
+    # Truncate tracklist when trimming
+    if opts.trim_duration:
+        tracks = [track for track in tracks if track.start_seconds < opts.trim_duration]
+
     # Open editor for editing the tracklist if not noninteractive
     if not opts.noninteractive:
         with NamedTemporaryFile(prefix='tracklist-', suffix='.txt', mode='w+t') as tmpfile:

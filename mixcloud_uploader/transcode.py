@@ -1,5 +1,4 @@
 import ffmpeg
-import ffprobe
 import subprocess
 
 from pathlib import Path

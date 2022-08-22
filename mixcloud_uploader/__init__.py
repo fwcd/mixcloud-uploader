@@ -40,6 +40,12 @@ class Options:
     artwork_path: Optional[Path]
     # The tags for the mix.
     tags: list[str]
+    # Optionally a duration in seconds to trim to.
+    trim_duration: Optional[float]
+    # Optionally a duration in seconds to fade in.
+    fade_in: Optional[float]
+    # Optionally a duration in seconds to fade out.
+    fade_out: Optional[float]
 
 def find_latest_recording(recordings_dir: Path) -> tuple[Optional[Path], Optional[Path]]:
     """Finds the latest recording's wav and cue path."""
@@ -66,7 +72,13 @@ def run(opts: Options):
         print(f'==> Using cached {opts.output_path}...')
     else:
         print(f'==> Transcoding {opts.recording_path} to {opts.output_path}...')
-        transcode(opts.recording_path, opts.output_path)
+        transcode(
+            recording_path=opts.recording_path,
+            output_path=opts.output_path,
+            trim_duration=opts.trim_duration,
+            fade_in=opts.fade_in,
+            fade_out=opts.fade_out,
+        )
     
     # Parse and prompt user to edit the tracklist
     tracks = read_cuesheet(opts.tracklist_path)
@@ -129,6 +141,9 @@ def main():
     parser.add_argument('-at', '--access-token', help='The access token to use. Will skip browser-based authentication if provided.')
     parser.add_argument('-ci', '--client-id', help='The client id to use.')
     parser.add_argument('-cs', '--client-secret', help='The client secret to use.')
+    parser.add_argument('--trim-duration', type=int, default=None, help='Trims to the given duration in seconds.')
+    parser.add_argument('--fade-in', type=int, default=None, help='Adds the given fade-in in seconds.')
+    parser.add_argument('--fade-out', type=int, default=None, help='Adds the given fade-out in seconds.')
 
     # Parse CLI args
     args = parser.parse_args()
@@ -145,6 +160,9 @@ def main():
     description = args.description
     artwork_path = args.artwork
     tags = [tag.strip() for tag in args.tags.split(',')]
+    trim_duration = args.trim_duration
+    fade_in = args.fade_in
+    fade_out = args.fade_out
 
     # Read config
     if config_path and config_path.exists():
@@ -254,5 +272,8 @@ def main():
             description=description,
             artwork_path=artwork_path.expanduser() if artwork_path else None,
             tags=[tag.strip() for tag in tags if tag.strip()],
+            trim_duration=trim_duration,
+            fade_in=fade_in,
+            fade_out=fade_out,
         )
         run(opts)

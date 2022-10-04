@@ -8,10 +8,12 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+from tracklist.format.cuesheet import CuesheetFormat
+from tracklist.format.tabular import TabularFormat
 from typing import Optional
 
 from mixcloud_uploader.mixcloud import Mixcloud, authenticate_via_browser
-from mixcloud_uploader.tracklist import format_tabular, read_cuesheet, read_tabular, write_tabular
+from mixcloud_uploader.transform import complete_tracklist, trim_tracklist
 from mixcloud_uploader.transcode import transcode
 from mixcloud_uploader.utils import confirm, input_with_default, pretty_box
 
@@ -81,38 +83,47 @@ def run(opts: Options):
         )
     
     # Parse and prompt user to edit the tracklist
-    tracks = read_cuesheet(opts.tracklist_path)
+    with open(opts.tracklist_path, 'r') as f:
+        tracks = CuesheetFormat().parse(f.read())
+
+    # Complete artists
+    tracks = complete_tracklist(tracks)
 
     # Truncate tracklist when trimming
     if opts.trim_duration:
-        tracks = [track for track in tracks if track.start_seconds < opts.trim_duration]
+        tracks = trim_tracklist(tracks, opts.trim_duration)
+
+    edit_format = TabularFormat(separator=' :: ')
 
     # Open editor for editing the tracklist if not noninteractive
     if not opts.noninteractive:
         with NamedTemporaryFile(prefix='tracklist-', suffix='.txt', mode='w+t') as tmpfile:
             editor = os.environ.get('EDITOR', 'vim')
-
             path = Path(tmpfile.name)
-            write_tabular(tracks, path)
-            tmpfile.flush()
 
+            with open(path, 'w') as f:
+                f.write(edit_format.format(tracks) + '\n')
+
+            tmpfile.flush()
             subprocess.run([editor, str(path)])
 
-            new_tracks = read_tabular(path)
+            with open(path, 'r') as f:
+                new_tracks = edit_format.parse(f.read())
+
             if tracks and not new_tracks:
                 print('Empty tracklist, aborting...')
                 sys.exit(1)
             tracks = new_tracks
     
     print('==> Confirming...')
-    print('\n'.join(format_tabular(tracks)))
+    print(edit_format.format(tracks))
     print(pretty_box([
         f'- name: {opts.name}',
         f'- description: {opts.description}',
         f'- audio_file_path: {opts.output_path}',
         f'- artwork_path: {opts.artwork_path}',
         f'- tags: {opts.tags}',
-        f'- tracks: {len(tracks)} track(s), see above',
+        f'- tracks: {len(tracks.entries)} track(s), see above',
     ]))
     confirm('Upload this mix?')
 

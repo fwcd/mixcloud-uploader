@@ -6,10 +6,9 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs, quote_plus
 from pathlib import Path
+from tracklist.model import Tracklist
 from threading import Thread
 from typing import Optional
-
-from mixcloud_uploader.tracklist import TracklistEntry
 
 class Mixcloud:
     """A wrapper around the Mixcloud API."""
@@ -37,7 +36,7 @@ class Mixcloud:
         artwork_path: Optional[Path]=None,
         description: Optional[str]=None,
         tags: Optional[list[str]]=None,
-        tracks: Optional[list[TracklistEntry]]=None,
+        tracks: Optional[Tracklist]=None,
     ):
         """Uploads a mix."""
         with open(audio_file_path, 'rb') as audio_file:
@@ -52,7 +51,7 @@ class Mixcloud:
                         ('name', name),
                         ('description', description),
                         *((f'tags-{i}-tag', tag) for i, tag in enumerate(tags or [])),
-                        *(section for i, track in enumerate(tracks or []) for section in [
+                        *(section for i, track in enumerate(tracks.entries if tracks else []) for section in [
                             (f'sections-{i}-artist', track.artist),
                             (f'sections-{i}-song', track.title),
                             (f'sections-{i}-start_time', track.start_seconds),
